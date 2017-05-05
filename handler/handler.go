@@ -1,9 +1,13 @@
 package handler
 
-import "database/sql"
+import (
+	"github.com/jinzhu/gorm"
+	"github.com/go-playground/universal-translator"
+)
 
 type (
 	Handler struct {
-		DB *sql.DB
+		DB *gorm.DB
+		Translation ut.Translator
 	}
 )
