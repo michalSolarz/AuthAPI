@@ -40,7 +40,7 @@ func main() {
 
 	app.Use(middleware.Logger())
 
-	h := &handler.Handler{DB: db, Translation: translation}
+	h := &handler.Handler{DB: db, Translation: translation, Config: map[string]string{"secret": "VerySecretSecret"}}
 
 	app.POST("/sign-up", h.SignUp)
 

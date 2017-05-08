@@ -9,5 +9,6 @@ type (
 	Handler struct {
 		DB *gorm.DB
 		Translation ut.Translator
+		Config map[string]string
 	}
 )
