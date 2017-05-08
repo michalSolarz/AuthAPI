@@ -43,6 +43,7 @@ func main() {
 	h := &handler.Handler{DB: db, Translation: translation, Config: map[string]string{"secret": "VerySecretSecret"}}
 
 	app.POST("/sign-up", h.SignUp)
+	app.POST("/login", h.Login)
 
 	app.Logger.Fatal(app.Start(":8080"))
 }
