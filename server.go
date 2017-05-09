@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	DB_NAME     = "redikop"
-	DB_USER     = "redikop"
-	DB_PASSWORD = "redikop"
+	DB_NAME        = "redikop"
+	DB_USER        = "redikop"
+	DB_PASSWORD    = "redikop"
+	REDIS_HOST     = "localhost"
+	REDIS_PORT     = "6379"
+	REDIS_PASSWORD = ""
 )
 
 func main() {
@@ -31,7 +34,7 @@ func main() {
 	db.AutoMigrate(&model.User{})
 
 	redisConnections := map[string]*redis.Client{
-		"tokenStorage": redis.NewClient(&redis.Options{Addr: "localhost:6379", Password: "", DB: 0})}
+		"tokenStorage": redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", REDIS_HOST, REDIS_PORT), Password: REDIS_PASSWORD, DB: 0})}
 
 	app := echo.New()
 	app.Logger.SetLevel(log.DEBUG)

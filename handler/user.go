@@ -42,7 +42,7 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 	h.DB.Create(u)
 
 	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
-	TokenIsToRedis(h.RedisConnections["tokenStorage"], tokenId)
+	TokenIdToRedis(h.RedisConnections["tokenStorage"], tokenId)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
@@ -63,17 +63,17 @@ func (h *Handler) Login(c echo.Context) (err error) {
 	h.DB.Where("username LIKE ?", u.Username).Find(&existingUser)
 	if len(existingUser) == 0 {
 		bcrypt.GenerateFromPassword(uuid.NewV4().Bytes(), 12)
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid passord"})
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid password"})
 	}
 
 	isValidPassword := bcrypt.CompareHashAndPassword([]byte(existingUser[0].Password), []byte(u.Password))
 
 	if isValidPassword != nil {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid passord"})
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid password"})
 	}
 
 	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
-	TokenIsToRedis(h.RedisConnections["tokenStorage"], tokenId)
+	TokenIdToRedis(h.RedisConnections["tokenStorage"], tokenId)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
@@ -106,7 +106,17 @@ func GenerateToken(signKey []byte) (tokenId string, tokenString string, err erro
 	return id, signedString, err
 }
 
-func TokenIsToRedis(redisConnection *redis.Client, tokenId string) {
-	redisConnection.SAdd("tokenStore", tokenId)
-	redisConnection.SAdd("dailyTokenStore:"+time.Now().UTC().Format("2006-01-02"), tokenId)
+func TokenIdToRedis(redisConnection *redis.Client, tokenId string) {
+	redisConnection.SAdd("activeTokensStore", tokenId)
+	TokenIdToDailyStorage(redisConnection, tokenId)
+}
+
+func TokenIdToDailyStorage(redisConnection *redis.Client, tokenId string) {
+	date := time.Now().UTC().Format("2006-01-02")
+	redisConnection.SAdd("dailyTokensStore:"+date, tokenId)
+	AddDailyStorage(redisConnection, date)
+}
+
+func AddDailyStorage(redisConnection *redis.Client, date string) {
+	redisConnection.SAdd("dailyTokensStores", date)
 }
