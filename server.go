@@ -14,6 +14,7 @@ import (
 	"github.com/go-playground/locales/en"
 	"github.com/go-playground/universal-translator"
 	en_translations "gopkg.in/go-playground/validator.v9/translations/en"
+	"github.com/go-redis/redis"
 )
 
 const (
@@ -29,6 +30,9 @@ func main() {
 	defer db.Close()
 	db.AutoMigrate(&model.User{})
 
+	redisConnections := map[string]*redis.Client{
+		"tokenStorage": redis.NewClient(&redis.Options{Addr: "localhost:6379", Password: "", DB: 0})}
+
 	app := echo.New()
 	app.Logger.SetLevel(log.DEBUG)
 	validate := validator.New()
@@ -40,7 +44,10 @@ func main() {
 
 	app.Use(middleware.Logger())
 
-	h := &handler.Handler{DB: db, Translation: translation, Config: map[string]string{"secret": "VerySecretSecret"}}
+	h := &handler.Handler{DB: db,
+		Translation:      translation,
+		Config:           map[string]string{"secret": "VerySecretSecret"},
+		RedisConnections: redisConnections}
 
 	app.POST("/sign-up", h.SignUp)
 	app.POST("/login", h.Login)

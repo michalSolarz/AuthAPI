@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"time"
+	"github.com/go-redis/redis"
 )
 
 func (h *Handler) SignUp(c echo.Context) (err error) {
@@ -40,7 +41,8 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 
 	h.DB.Create(u)
 
-	token, err := GenerateToken([]byte(h.Config["secret"]))
+	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
+	TokenIsToRedis(h.RedisConnections["tokenStorage"], tokenId)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
@@ -70,7 +72,8 @@ func (h *Handler) Login(c echo.Context) (err error) {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid passord"})
 	}
 
-	token, err := GenerateToken([]byte(h.Config["secret"]))
+	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
+	TokenIsToRedis(h.RedisConnections["tokenStorage"], tokenId)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
@@ -93,12 +96,17 @@ func (h *Handler) LoginGoogle(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, map[string]string{"hello": "login-google"})
 }
 
-func GenerateToken(signKey []byte) (string, error) {
+func GenerateToken(signKey []byte) (tokenId string, tokenString string, err error) {
 	id := uuid.NewV4().String()
 	claims := &jwt.StandardClaims{Id: id, NotBefore: time.Now().Unix(), IssuedAt: time.Now().Unix(), ExpiresAt: time.Now().Add(time.Hour * 24 * 30).Unix()}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(signKey)
+	signedString, err := token.SignedString(signKey)
 
-	return tokenString, err
+	return id, signedString, err
+}
+
+func TokenIsToRedis(redisConnection *redis.Client, tokenId string) {
+	redisConnection.SAdd("tokenStore", tokenId)
+	redisConnection.SAdd("dailyTokenStore:"+time.Now().UTC().Format("2006-01-02"), tokenId)
 }
