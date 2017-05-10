@@ -8,9 +8,7 @@ import (
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
-	"time"
-	"github.com/go-redis/redis"
+	"gitlab.com/michalSolarz/AuthAPI/authorization"
 )
 
 func (h *Handler) SignUp(c echo.Context) (err error) {
@@ -41,13 +39,13 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 
 	h.DB.Create(u)
 
-	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
-	TokenIdToRedis(h.RedisConnections["tokenStorage"], tokenId)
+	token, err := authorization.GenerateToken([]byte(h.Config["secret"]), c, u.UUID)
+	authorization.TokenToRedis(h.RedisConnections["tokenStorage"], token)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
 	}
-	c.Response().Header().Add("auth-token", string(token))
+	c.Response().Header().Add("auth-token", token.SignedString)
 
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
@@ -72,14 +70,14 @@ func (h *Handler) Login(c echo.Context) (err error) {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Missing user or invalid password"})
 	}
 
-	tokenId, token, err := GenerateToken([]byte(h.Config["secret"]))
-	TokenIdToRedis(h.RedisConnections["tokenStorage"], tokenId)
+	token, err := authorization.GenerateToken([]byte(h.Config["secret"]), c, existingUser[0].UUID)
+	authorization.TokenToRedis(h.RedisConnections["tokenStorage"], token)
 	if err != nil {
 		c.Logger().Error("Failed to generate token")
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
 	}
 
-	c.Response().Header().Add("auth-token", string(token))
+	c.Response().Header().Add("auth-token", token.SignedString)
 
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
@@ -94,29 +92,4 @@ func (h *Handler) LoginFacebook(c echo.Context) (err error) {
 
 func (h *Handler) LoginGoogle(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, map[string]string{"hello": "login-google"})
-}
-
-func GenerateToken(signKey []byte) (tokenId string, tokenString string, err error) {
-	id := uuid.NewV4().String()
-	claims := &jwt.StandardClaims{Id: id, NotBefore: time.Now().Unix(), IssuedAt: time.Now().Unix(), ExpiresAt: time.Now().Add(time.Hour * 24 * 30).Unix()}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedString, err := token.SignedString(signKey)
-
-	return id, signedString, err
-}
-
-func TokenIdToRedis(redisConnection *redis.Client, tokenId string) {
-	redisConnection.SAdd("activeTokensStore", tokenId)
-	TokenIdToDailyStorage(redisConnection, tokenId)
-}
-
-func TokenIdToDailyStorage(redisConnection *redis.Client, tokenId string) {
-	date := time.Now().UTC().Format("2006-01-02")
-	redisConnection.SAdd("dailyTokensStore:"+date, tokenId)
-	AddDailyStorage(redisConnection, date)
-}
-
-func AddDailyStorage(redisConnection *redis.Client, date string) {
-	redisConnection.SAdd("dailyTokensStores", date)
 }
