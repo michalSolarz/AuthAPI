@@ -15,6 +15,7 @@ import (
 	"github.com/go-playground/universal-translator"
 	en_translations "gopkg.in/go-playground/validator.v9/translations/en"
 	"github.com/go-redis/redis"
+	"github.com/adjust/redismq"
 )
 
 const (
@@ -36,6 +37,8 @@ func main() {
 	redisConnections := map[string]*redis.Client{
 		"tokenStorage": redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", REDIS_HOST, REDIS_PORT), Password: REDIS_PASSWORD, DB: 0})}
 
+	mailingQueue := redismq.CreateQueue(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, 10, "mailingQueue")
+
 	app := echo.New()
 	app.Logger.SetLevel(log.DEBUG)
 	validate := validator.New()
@@ -50,10 +53,13 @@ func main() {
 	h := &handler.Handler{DB: db,
 		Translation:      translation,
 		Config:           map[string]string{"secret": "VerySecretSecret"},
-		RedisConnections: redisConnections}
+		RedisConnections: redisConnections,
+		MailingQueue:     mailingQueue,
+	}
 
 	app.POST("/sign-up", h.SignUp)
 	app.POST("/login", h.Login)
+	app.POST("/reuest-password-reset", h.RequestPasswordReset)
 
 	app.Logger.Fatal(app.Start(":8080"))
 }

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"fmt"
 	"gitlab.com/michalSolarz/AuthAPI/authorization"
+	"gitlab.com/michalSolarz/AuthAPI/mailing_queue"
 )
 
 func (h *Handler) SignUp(c echo.Context) (err error) {
@@ -39,13 +40,19 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 
 	h.DB.Create(u)
 
-	token, err := authorization.GenerateToken([]byte(h.Config["secret"]), c, u.UUID)
-	authorization.TokenToRedis(h.RedisConnections["tokenStorage"], token)
+	authorizationToken, err := authorization.GenerateToken([]byte(h.Config["secret"]), c, u.UUID)
+	authorization.TokenToRedis(h.RedisConnections["tokenStorage"], authorizationToken)
+
+	activationToken := authorization.NewMailingToken(u, authorization.AccountActivationTokenType)
+
+	authorization.MailingTokenToRedis(h.RedisConnections["tokenStorage"], &activationToken)
+	mailing_queue.QueueTransactionalMail(h.MailingQueue, activationToken)
+
 	if err != nil {
-		c.Logger().Error("Failed to generate token")
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate token"})
+		c.Logger().Error("Failed to generate authorizationToken")
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to generate authorizationToken"})
 	}
-	c.Response().Header().Add("auth-token", token.SignedString)
+	c.Response().Header().Add("auth-authorizationToken", authorizationToken.SignedString)
 
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
@@ -82,8 +89,27 @@ func (h *Handler) Login(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
 
-func (h *Handler) ResetPassword(c echo.Context) (err error) {
-	return c.JSON(http.StatusCreated, map[string]string{"hello": "reset-password"})
+func (h *Handler) RequestPasswordReset(c echo.Context) (err error) {
+	u := &model.User{}
+	if err = c.Bind(u); err != nil {
+		c.Logger().Error("Failed to bind existingUser data")
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to bind existingUser data"})
+	}
+
+	existingUser := []model.User{}
+	h.DB.Where("email LIKE ?", u.Email).Find(&existingUser)
+	if len(existingUser) == 0 {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "User doesn't exist"})
+	}
+
+
+	passwordResetToken := authorization.NewMailingToken(&existingUser[0], authorization.PasswordResetTokenType)
+
+	authorization.MailingTokenToRedis(h.RedisConnections["tokenStorage"], &passwordResetToken)
+	mailing_queue.QueueTransactionalMail(h.MailingQueue, passwordResetToken)
+
+
+	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) LoginFacebook(c echo.Context) (err error) {
