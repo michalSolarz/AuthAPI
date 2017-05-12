@@ -34,8 +34,13 @@ func main() {
 	defer db.Close()
 	db.AutoMigrate(&model.User{})
 
+	tokenStorage := redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", REDIS_HOST, REDIS_PORT), Password: REDIS_PASSWORD, DB: 0})
+	redisError := tokenStorage.Ping().Err()
+	checkError(redisError)
+
 	redisConnections := map[string]*redis.Client{
-		"tokenStorage": redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", REDIS_HOST, REDIS_PORT), Password: REDIS_PASSWORD, DB: 0})}
+		"tokenStorage": tokenStorage}
+
 
 	mailingQueue := redismq.CreateQueue(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, 10, "mailingQueue")
 

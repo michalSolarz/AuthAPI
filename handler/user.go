@@ -43,7 +43,7 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 	authorizationToken, err := authorization.GenerateToken([]byte(h.Config["secret"]), c, u.UUID)
 	authorization.TokenToRedis(h.RedisConnections["tokenStorage"], authorizationToken)
 
-	activationToken := authorization.NewMailingToken(u, authorization.AccountActivationTokenType)
+	activationToken := authorization.NewMailingToken(u, authorization.AccountActivationTokenType, authorization.MailingTokenExpiration(authorization.AccountActivationTokenType))
 
 	authorization.MailingTokenToRedis(h.RedisConnections["tokenStorage"], &activationToken)
 	mailing_queue.QueueTransactionalMail(h.MailingQueue, activationToken)
@@ -102,12 +102,10 @@ func (h *Handler) RequestPasswordReset(c echo.Context) (err error) {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "User doesn't exist"})
 	}
 
-
-	passwordResetToken := authorization.NewMailingToken(&existingUser[0], authorization.PasswordResetTokenType)
+	passwordResetToken := authorization.NewMailingToken(&existingUser[0], authorization.PasswordResetTokenType, authorization.MailingTokenExpiration(authorization.PasswordResetTokenType))
 
 	authorization.MailingTokenToRedis(h.RedisConnections["tokenStorage"], &passwordResetToken)
 	mailing_queue.QueueTransactionalMail(h.MailingQueue, passwordResetToken)
-
 
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
