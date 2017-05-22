@@ -57,6 +57,10 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
 
+func (h *Handler) ActivateAccount(c echo.Context) (err error) {
+	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
+}
+
 func (h *Handler) Login(c echo.Context) (err error) {
 	u := &model.User{}
 	if err = c.Bind(u); err != nil {
@@ -108,6 +112,10 @@ func (h *Handler) RequestPasswordReset(c echo.Context) (err error) {
 	mailing_queue.QueueTransactionalMail(h.MailingQueue, passwordResetToken)
 
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) PasswordReset(c echo.Context) (err error) {
+	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
 }
 
 func (h *Handler) LoginFacebook(c echo.Context) (err error) {
