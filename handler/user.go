@@ -13,7 +13,7 @@ import (
 )
 
 func (h *Handler) SignUp(c echo.Context) (err error) {
-	u := &model.User{}
+	u := &model.User{Activated: false}
 	if err = c.Bind(u); err != nil {
 		return
 	}
@@ -58,6 +58,9 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 }
 
 func (h *Handler) ActivateAccount(c echo.Context) (err error) {
+	mailingToken := authorization.MailingToken{Token: c.Param("token"), UserUuid: c.Param("userUuid"), TokenType: authorization.AccountActivationTokenType}
+	authorization.MailingTokenInRedis(h.RedisConnections["tokenStorage"], mailingToken)
+	c.Logger().Info(mailingToken)
 	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
 }
 

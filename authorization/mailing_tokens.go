@@ -44,3 +44,20 @@ func MailingTokenExpiration(tokenType string) *time.Time {
 	}
 	return &expiration
 }
+
+func MailingTokenInRedis(redisConnection *redis.Client, logger, token MailingToken) bool {
+	cmd := redisConnection.HGet(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
+	t, err := cmd.Result()
+	if err != nil {
+		panic(err)
+		return false
+	}
+	println(t)
+	expired, err := time.Parse("2006-01-02 15:04:05.999999999", t)
+	if err != nil {
+		println(err.Error())
+	}
+	r := time.Now().UTC().Sub(expired)
+	println(r.String())
+	return true
+}
