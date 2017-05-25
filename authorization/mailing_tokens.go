@@ -46,7 +46,7 @@ func MailingTokenExpiration(tokenType string) *time.Time {
 	return &expiration
 }
 
-func MailingTokenInRedis(redisConnection *redis.Client, token MailingToken) bool {
+func MailingTokenInRedis(redisConnection *redis.Client, token *MailingToken) bool {
 	cmd := redisConnection.HGet(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
 	t, err := cmd.Result()
 	if err == redis.Nil {
@@ -64,9 +64,13 @@ func MailingTokenInRedis(redisConnection *redis.Client, token MailingToken) bool
 
 	isExpired := expired.Sub(time.Now().UTC()) <= 0
 	if isExpired {
-		redisConnection.HDel(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
+		InvalidateMailingToken(redisConnection, token)
 		return false
 	}
 
 	return true
+}
+
+func InvalidateMailingToken(redisConnection *redis.Client, token *MailingToken) {
+	redisConnection.HDel(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
 }
