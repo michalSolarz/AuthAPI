@@ -59,8 +59,11 @@ func (h *Handler) SignUp(c echo.Context) (err error) {
 
 func (h *Handler) ActivateAccount(c echo.Context) (err error) {
 	mailingToken := authorization.MailingToken{Token: c.Param("token"), UserUuid: c.Param("userUuid"), TokenType: authorization.AccountActivationTokenType}
-	authorization.MailingTokenInRedis(h.RedisConnections["tokenStorage"], mailingToken)
-	c.Logger().Info(mailingToken)
+	inRedis := authorization.MailingTokenInRedis(h.RedisConnections["tokenStorage"], mailingToken)
+	if !inRedis{
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Forbidden"})
+	}
+
 	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
 }
 

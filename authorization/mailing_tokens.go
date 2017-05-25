@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"time"
+	"github.com/labstack/gommon/log"
 )
 
 type (
@@ -45,19 +46,27 @@ func MailingTokenExpiration(tokenType string) *time.Time {
 	return &expiration
 }
 
-func MailingTokenInRedis(redisConnection *redis.Client, logger, token MailingToken) bool {
+func MailingTokenInRedis(redisConnection *redis.Client, token MailingToken) bool {
 	cmd := redisConnection.HGet(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
 	t, err := cmd.Result()
-	if err != nil {
-		panic(err)
+	if err == redis.Nil {
+		return false
+	} else if err != nil {
+		log.Error(err)
 		return false
 	}
-	println(t)
+
 	expired, err := time.Parse("2006-01-02 15:04:05.999999999", t)
 	if err != nil {
-		println(err.Error())
+		log.Error(err)
+		return false
 	}
-	r := time.Now().UTC().Sub(expired)
-	println(r.String())
+
+	isExpired := expired.Sub(time.Now().UTC()) <= 0
+	if isExpired {
+		redisConnection.HDel(fmt.Sprintf("User:%s:MailingToken:%s", token.UserUuid, token.TokenType), token.Token)
+		return false
+	}
+
 	return true
 }
