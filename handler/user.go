@@ -198,3 +198,7 @@ func (h *Handler) LoginFacebook(c echo.Context) (err error) {
 func (h *Handler) LoginGoogle(c echo.Context) (err error) {
 	return c.JSON(http.StatusCreated, map[string]string{"hello": "login-google"})
 }
+
+func (h *Handler) HealthCheck(c echo.Context) (err error)  {
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}

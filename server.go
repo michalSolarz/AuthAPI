@@ -16,6 +16,7 @@ import (
 	en_translations "gopkg.in/go-playground/validator.v9/translations/en"
 	"github.com/go-redis/redis"
 	"github.com/adjust/redismq"
+	"github.com/coreos/go-systemd/daemon"
 )
 
 const (
@@ -41,7 +42,6 @@ func main() {
 	redisConnections := map[string]*redis.Client{
 		"tokenStorage": tokenStorage}
 
-
 	mailingQueue := redismq.CreateQueue(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, 10, "mailingQueue")
 
 	app := echo.New()
@@ -62,6 +62,7 @@ func main() {
 		MailingQueue:     mailingQueue,
 	}
 
+	app.GET("/", h.HealthCheck)
 	app.POST("/sign-up", h.SignUp)
 	app.GET("/activate-account/:userUuid/:token", h.ActivateAccount)
 	app.POST("/login", h.Login)
@@ -69,6 +70,7 @@ func main() {
 	app.GET("/password-reset/:userUuid/:token", h.PasswordResetAttempt)
 	app.POST("/password-reset", h.PasswordReset)
 
+	daemon.SdNotify(false, "READY=1")
 	app.Logger.Fatal(app.Start(":8080"))
 }
 
