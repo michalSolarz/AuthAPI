@@ -33,7 +33,6 @@ func main() {
 	db, err := gorm.Open("postgres", connectionString)
 	checkError(err)
 	defer db.Close()
-	db.AutoMigrate(&model.User{})
 
 	tokenStorage := redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%s", REDIS_HOST, REDIS_PORT), Password: REDIS_PASSWORD, DB: 0})
 	redisError := tokenStorage.Ping().Err()
