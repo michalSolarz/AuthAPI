@@ -73,7 +73,7 @@ func (h *Handler) ActivateAccount(c echo.Context) (err error) {
 	h.DB.Model(&user).Update("activated", true)
 	authorization.InvalidateMailingToken(h.RedisConnections["tokenStorage"], &mailingToken)
 
-	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
+	return c.JSON(http.StatusOK, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
 }
 
 func (h *Handler) Login(c echo.Context) (err error) {
@@ -105,7 +105,7 @@ func (h *Handler) Login(c echo.Context) (err error) {
 
 	c.Response().Header().Add("auth-token", token.SignedString)
 
-	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) RequestPasswordReset(c echo.Context) (err error) {
@@ -126,11 +126,69 @@ func (h *Handler) RequestPasswordReset(c echo.Context) (err error) {
 	authorization.MailingTokenToRedis(h.RedisConnections["tokenStorage"], &passwordResetToken)
 	mailing_queue.QueueTransactionalMail(h.MailingQueue, passwordResetToken)
 
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) PasswordResetAttempt(c echo.Context) (err error) {
+	mailingToken := authorization.MailingToken{Token: c.Param("token"), UserUuid: c.Param("userUuid"), TokenType: authorization.PasswordResetTokenType}
+	inRedis := authorization.MailingTokenInRedis(h.RedisConnections["tokenStorage"], &mailingToken)
+	if !inRedis {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+
+	user := []model.User{}
+	h.DB.Where("uuid LIKE ?", mailingToken.UserUuid).Find(&user)
+	if len(user) == 0 {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+
+	passwordResetToken := uuid.NewV4().String()
+
+	authorization.PasswordResetTokenToRedis(h.RedisConnections["tokenStorage"], passwordResetToken)
+	authorization.InvalidateMailingToken(h.RedisConnections["tokenStorage"], &mailingToken)
+
+	c.Response().Header().Add("auth-password-reset-id", mailingToken.UserUuid)
+	c.Response().Header().Add("auth-password-reset-token", passwordResetToken)
 	return c.JSON(http.StatusCreated, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) PasswordReset(c echo.Context) (err error) {
-	return c.JSON(http.StatusCreated, map[string]string{"hello": fmt.Sprintf("ActivateAccount UserUUID:%s", c.Param("userUuid"))})
+	token := c.Request().Header.Get("auth-password-reset-token")
+	userUuid := c.Request().Header.Get("auth-password-reset-id")
+	if len(userUuid) == 0 {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+
+	inStore := authorization.PasswordResetTokenInRedis(h.RedisConnections["tokenStorage"], token)
+	if !inStore {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+
+	user := []model.User{}
+	h.DB.Where("uuid LIKE ?", userUuid).Find(&user)
+	if len(user) == 0 {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+
+	p := &model.Password{}
+	if err = c.Bind(p); err != nil {
+		return
+	}
+
+	if err = c.Validate(p); err != nil {
+		errs := err.(validator.ValidationErrors)
+		return c.JSON(http.StatusUnprocessableEntity, errs.Translate(h.Translation))
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(p.Password), 12)
+	if err != nil {
+		c.Logger().Error(fmt.Sprintf("Failed to hash password: %s", p.Password))
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Failed to hash password"})
+	}
+	h.DB.Model(&user).Update("password", string(hashedPassword))
+	authorization.RemovePasswordResetTokenFromRedis(h.RedisConnections["tokenStorage"], token)
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) LoginFacebook(c echo.Context) (err error) {

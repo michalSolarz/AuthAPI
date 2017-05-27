@@ -65,8 +65,9 @@ func main() {
 	app.POST("/sign-up", h.SignUp)
 	app.GET("/activate-account/:userUuid/:token", h.ActivateAccount)
 	app.POST("/login", h.Login)
-	app.POST("/reuest-password-reset", h.RequestPasswordReset)
-	app.GET("/password-reset/:userUuid/:token", h.PasswordReset)
+	app.POST("/request-password-reset", h.RequestPasswordReset)
+	app.GET("/password-reset/:userUuid/:token", h.PasswordResetAttempt)
+	app.POST("/password-reset", h.PasswordReset)
 
 	app.Logger.Fatal(app.Start(":8080"))
 }

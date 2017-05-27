@@ -7,6 +7,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/labstack/echo"
 	"encoding/json"
+	"fmt"
 )
 
 type Token struct {
@@ -54,4 +55,20 @@ func TokenToUserStorage(redisConnection *redis.Client, token Token) {
 
 func AddDailyStorage(redisConnection *redis.Client, date string) {
 	redisConnection.SAdd("dailyTokensStores", date)
+}
+
+func PasswordResetTokenToRedis(redisConnection *redis.Client, token string) {
+	redisConnection.Set(fmt.Sprintf("passwordResetToken:%s", token), token, time.Duration(time.Minute*5))
+}
+
+func PasswordResetTokenInRedis(redisConnection *redis.Client, token string) bool {
+	t := redisConnection.Get(fmt.Sprintf("passwordResetToken:%s", token))
+	if t.Err() == redis.Nil {
+		return false
+	}
+	return true
+}
+
+func RemovePasswordResetTokenFromRedis(redisConnection *redis.Client, token string)  {
+	redisConnection.Del(fmt.Sprintf("passwordResetToken:%s", token))
 }

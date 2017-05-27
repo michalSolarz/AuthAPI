@@ -21,7 +21,7 @@ type (
 
 const (
 	AccountActivationTokenType = "AccountActivation"
-	PasswordResetTokenType     = "PasswordReset"
+	PasswordResetTokenType     = "PasswordResetAttempt"
 )
 
 func NewMailingToken(user *model.User, tokenType string, expires *time.Time) MailingToken {
