@@ -61,13 +61,13 @@ func main() {
 		MailingQueue:     mailingQueue,
 	}
 
-	app.GET("/", h.HealthCheck)
-	app.POST("/sign-up", h.SignUp)
-	app.GET("/activate-account/:userUuid/:token", h.ActivateAccount)
-	app.POST("/login", h.Login)
-	app.POST("/request-password-reset", h.RequestPasswordReset)
-	app.GET("/password-reset/:userUuid/:token", h.PasswordResetAttempt)
-	app.POST("/password-reset", h.PasswordReset)
+	app.GET("/v1/auth/", h.HealthCheck)
+	app.POST("/v1/auth/sign-up", h.SignUp)
+	app.GET("/v1/auth/activate-account/:userUuid/:token", h.ActivateAccount)
+	app.POST("/v1/auth/login", h.Login)
+	app.POST("/v1/auth/request-password-reset", h.RequestPasswordReset)
+	app.GET("/v1/auth/password-reset/:userUuid/:token", h.PasswordResetAttempt)
+	app.POST("/v1/auth/password-reset", h.PasswordReset)
 
 	daemon.SdNotify(false, "READY=1")
 	app.Logger.Fatal(app.Start(":8080"))
